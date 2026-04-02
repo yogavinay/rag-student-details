@@ -1,12 +1,11 @@
 """
-app.py — DSA Mentor AI ✦ Premium Streamlit UI
-================================================
-A beautiful, dark-themed RAG chatbot for Data Structures & Algorithms.
+app.py — Student Details AI ✦ Premium Streamlit UI
+===================================================
+A beautiful, dark-themed RAG chatbot for school & student information.
 """
 
 import streamlit as st
 import os
-import random
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -17,8 +16,8 @@ load_dotenv()
 # ║  1. PAGE CONFIG                                                 ║
 # ╚══════════════════════════════════════════════════════════════════╝
 st.set_page_config(
-    page_title="DSA Mentor AI",
-    page_icon="🧠",
+    page_title="Student Details AI",
+    page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -397,38 +396,6 @@ def init_session_state():
         st.session_state.messages = []
     if "rag_ready" not in st.session_state:
         st.session_state.rag_ready = False
-    if "potd" not in st.session_state:
-        st.session_state.potd = _random_problem()
-
-
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║  4. PROBLEM-OF-THE-DAY DATA                                    ║
-# ╚══════════════════════════════════════════════════════════════════╝
-PROBLEMS_POOL = [
-    {"title": "Two Sum", "category": "Arrays • Hash Map", "difficulty": "Easy"},
-    {"title": "Reverse Linked List", "category": "Linked Lists", "difficulty": "Easy"},
-    {"title": "Valid Parentheses", "category": "Stacks", "difficulty": "Easy"},
-    {"title": "Binary Search", "category": "Searching", "difficulty": "Easy"},
-    {"title": "Maximum Subarray", "category": "Arrays • DP", "difficulty": "Medium"},
-    {"title": "Merge Intervals", "category": "Arrays • Sorting", "difficulty": "Medium"},
-    {"title": "LRU Cache", "category": "Hash Map • Linked Lists", "difficulty": "Medium"},
-    {"title": "Number of Islands", "category": "Graphs • BFS/DFS", "difficulty": "Medium"},
-    {"title": "Course Schedule", "category": "Graphs • Topological Sort", "difficulty": "Medium"},
-    {"title": "Coin Change", "category": "Dynamic Programming", "difficulty": "Medium"},
-    {"title": "Longest Increasing Subsequence", "category": "Dynamic Programming", "difficulty": "Medium"},
-    {"title": "Kth Largest Element", "category": "Heaps", "difficulty": "Medium"},
-    {"title": "Word Ladder", "category": "Graphs • BFS", "difficulty": "Hard"},
-    {"title": "Serialize and Deserialize BST", "category": "Trees", "difficulty": "Hard"},
-    {"title": "Trapping Rain Water", "category": "Arrays • Two Pointers", "difficulty": "Hard"},
-    {"title": "N-Queens", "category": "Backtracking", "difficulty": "Hard"},
-    {"title": "Sliding Window Maximum", "category": "Queues • Deque", "difficulty": "Hard"},
-    {"title": "Merge K Sorted Lists", "category": "Heaps • Linked Lists", "difficulty": "Hard"},
-]
-
-
-def _random_problem():
-    """Pick a random DSA problem for the sidebar widget."""
-    return random.choice(PROBLEMS_POOL)
 
 
 # ╔══════════════════════════════════════════════════════════════════╗
@@ -472,49 +439,33 @@ def extract_complexity_badges(answer: str) -> str:
 # ║  7. SIDEBAR RENDERING                                          ║
 # ╚══════════════════════════════════════════════════════════════════╝
 def render_sidebar():
-    """Render the full sidebar: logo, filters, upload, and POTD widget."""
+    """Render the full sidebar: logo, filters, upload."""
     with st.sidebar:
 
         # ── App Logo ─────────────────────────────────────────
         st.markdown("""
         <div class="app-logo">
-            <span class="logo-icon">🧠</span>
-            <div class="logo-title">DSA Mentor AI</div>
-            <div class="logo-sub">Your Algorithm Companion</div>
+            <span class="logo-icon">🎓</span>
+            <div class="logo-title">Student Details AI</div>
+            <div class="logo-sub">School • Students • Fees • Exams</div>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("---")
 
         # ── Topic Filter ─────────────────────────────────────
-        st.markdown("##### 🏷️ Topic Filter")
+        st.markdown("##### 🧭 Focus")
         topic = st.selectbox(
             "Focus area",
             [
-                "All Topics",
-                "Arrays",
-                "Linked Lists",
-                "Stacks",
-                "Queues",
-                "Trees",
-                "Graphs",
-                "Hash Tables",
-                "Heaps",
-                "Sorting",
-                "Searching",
-                "Dynamic Programming",
-                "Greedy Algorithms",
-                "Backtracking",
+                "All",
+                "Student Marks",
+                "Attendance",
+                "Fee Structure",
+                "Exam Schedule",
+                "School Rules",
+                "Timetable",
             ],
-            label_visibility="collapsed",
-        )
-
-        # ── Difficulty Selector ──────────────────────────────
-        st.markdown("##### 🎯 Difficulty")
-        difficulty = st.radio(
-            "Difficulty",
-            ["All", "Easy", "Medium", "Hard"],
-            horizontal=True,
             label_visibility="collapsed",
         )
 
@@ -528,9 +479,9 @@ def render_sidebar():
         st.markdown("---")
 
         # ── Upload PDF / Notes ───────────────────────────────
-        st.markdown("##### 📄 Upload Notes")
+        st.markdown("##### 📄 Upload School Data")
         uploaded_file = st.file_uploader(
-            "Upload PDF or TXT for RAG ingestion",
+            "Upload PDF/TXT/JSON for indexing",
             type=["pdf", "txt", "json"],
             label_visibility="collapsed",
         )
@@ -545,32 +496,9 @@ def render_sidebar():
             st.caption("Run `python ingest.py` to index this file.")
 
         st.markdown("---")
+        st.caption("Built with LangChain + Gemini + ChromaDB")
 
-        # ── Problem of the Day ───────────────────────────────
-        potd = st.session_state.potd
-        diff_class = f"badge-difficulty-{potd['difficulty'].lower()}"
-        st.markdown(f"""
-        <div class="potd-card">
-            <div class="potd-label">⚡ Problem of the Day</div>
-            <div class="potd-title">{potd['title']}</div>
-            <div class="potd-category">{potd['category']}</div>
-            <div style="margin-top:8px;">
-                <span class="complexity-badge {diff_class}">{potd['difficulty']}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Ask about POTD button
-        if st.button(f"💡 Solve: {potd['title']}", use_container_width=True):
-            st.session_state.messages.append(
-                {"role": "user", "content": f"Explain and solve the '{potd['title']}' problem with Python code, time and space complexity."}
-            )
-            st.rerun()
-
-        st.markdown("---")
-        st.caption("Built with ❤️ using LangChain + Gemini + ChromaDB")
-
-    return topic, difficulty
+    return topic
 
 
 # ╔══════════════════════════════════════════════════════════════════╗
@@ -579,12 +507,12 @@ def render_sidebar():
 def render_quick_prompts():
     """Render quick prompt suggestion buttons above the chat input."""
     suggestions = [
-        "Explain Binary Search",
-        "Solve a DP problem",
-        "Time complexity of QuickSort",
-        "Visualize BFS",
-        "What is a Trie?",
-        "Compare DFS vs BFS",
+        "Show the fee structure",
+        "What is the exam schedule?",
+        "List the school rules",
+        "Summarize the timetable for class 10",
+        "Show marks for student AA001",
+        "Which students have attendance below 75%?",
     ]
 
     cols = st.columns(len(suggestions))
@@ -630,11 +558,11 @@ def render_welcome():
     """Show the welcome hero when chat is empty."""
     st.markdown("""
     <div class="welcome-hero">
-        <span class="hero-icon">🧠</span>
-        <div class="hero-title">Welcome to DSA Mentor AI</div>
+        <span class="hero-icon">🎓</span>
+        <div class="hero-title">Welcome to Student Details AI</div>
         <div class="hero-sub">
-            Your intelligent companion for mastering Data Structures & Algorithms.
-            Ask me anything — from basic concepts to hard interview problems!
+            Ask questions about student records, fees, exams, rules, and timetables.
+            I’ll answer using your uploaded school dataset.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -653,7 +581,7 @@ def main():
     init_session_state()
 
     # Render sidebar and get filter selections
-    topic_filter, difficulty = render_sidebar()
+    focus = render_sidebar()
 
     # ── Main Chat Area ───────────────────────────────────────
     if not st.session_state.messages:
@@ -666,11 +594,10 @@ def main():
     render_chat_history()
 
     # ── Chat Input ───────────────────────────────────────────
-    if prompt := st.chat_input("Ask me anything about DSA..."):
-        # Append difficulty hint if selected
+    if prompt := st.chat_input("Ask about fees, exams, rules, timetable, or student marks..."):
         full_query = prompt
-        if difficulty != "All":
-            full_query = f"[{difficulty} difficulty] {prompt}"
+        if focus and focus != "All":
+            full_query = f"[Focus: {focus}] {prompt}"
 
         # Show user message immediately
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -681,7 +608,7 @@ def main():
         with st.chat_message("assistant", avatar="🧠"):
             with st.spinner("🔍 Searching knowledge base & thinking..."):
                 try:
-                    result = call_rag_pipeline(full_query, topic_filter)
+                    result = call_rag_pipeline(full_query, focus)
                     answer = result["answer"]
                     sources = result.get("sources", [])
                 except Exception as e:

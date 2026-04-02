@@ -1,6 +1,6 @@
 """
-rag_chain.py — RAG Pipeline for DSA Mentor AI
------------------------------------------------
+rag_chain.py — RAG Pipeline
+---------------------------
 Provides two main functions:
   - get_rag_chain()        : returns the LCEL chain (kept for backward compat)
   - get_rag_response(query, topic_filter) : returns answer + source docs
@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -32,8 +33,21 @@ def _build_components():
     Internal: initialise embeddings, vectorstore, retriever, and LLM once.
     Returns (retriever, llm).
     """
-    # 1. Embeddings (same model used in ingest.py)
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    # 1. Embeddings (must match ingest.py)
+    embeddings = None
+    try:
+        embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2",
+            model_kwargs={"local_files_only": True},
+        )
+    except Exception:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not found. Please add it to the .env file.")
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="text-embedding-004",
+            google_api_key=api_key,
+        )
 
     # 2. Load Chroma vector DB
     if not os.path.exists(DB_DIR):
@@ -66,18 +80,17 @@ def get_rag_chain():
     _, retriever, llm = _build_components()
 
     prompt = ChatPromptTemplate.from_template(
-        """You are **DSA Mentor AI**, an expert tutor for Data Structures and Algorithms.
+        """You are a helpful assistant with access to a retrieved knowledge base.
 
-Use the following retrieved context to answer the question.
-If the answer is not found in the context, use your own knowledge to provide a helpful, accurate answer about DSA.
-Always include code examples in Python when relevant, and mention time/space complexity.
+Use the context below to answer the question as accurately as possible.
+If the answer is not in the context, say you don't have it in the provided documents (do not guess).
 
 Context:
 {context}
 
 Question: {question}
 
-Answer (use markdown formatting, code blocks, and bullet points):"""
+Answer (use markdown formatting when helpful):"""
     )
 
     rag_chain = (
@@ -120,24 +133,17 @@ def get_rag_response(query: str, topic_filter: str = "All Topics"):
 
     # ----- Prompt --------------------------------------------------------
     prompt = ChatPromptTemplate.from_template(
-        """You are **DSA Mentor AI** 🧠, an expert tutor for Data Structures and Algorithms.
+        """You are a helpful assistant with access to a retrieved knowledge base.
 
-You must answer the student's question using the retrieved context below AND your own expert knowledge.
-Follow these rules:
-1. Always provide **clear explanations** with real-world analogies when possible.
-2. Include **Python code examples** with proper syntax highlighting when relevant.
-3. Always state the **Time Complexity** and **Space Complexity** of any algorithm or solution you discuss.
-   Format them as: `Time: O(...)` | `Space: O(...)`.
-4. Use **markdown** formatting: headers, bullet points, numbered lists, bold text, and code blocks.
-5. If the topic is about a specific data structure, briefly describe it before diving into the solution.
-6. Be encouraging and supportive — you are a mentor!
+Answer the user's question using the context below.
+If the answer is not contained in the context, say you don't have enough information in the provided documents.
 
 Context from knowledge base:
 {context}
 
-Student's question: {question}
+User's question: {question}
 
-Your detailed answer:"""
+Your answer:"""
     )
 
     chain = prompt | llm | StrOutputParser()
@@ -146,10 +152,12 @@ Your detailed answer:"""
     # ----- Collect source metadata ---------------------------------------
     sources = []
     for doc in docs:
+        page = doc.metadata.get("page")
+        page_str = f" (page {page + 1})" if isinstance(page, int) else ""
         sources.append(
             {
                 "content": doc.page_content[:300] + ("…" if len(doc.page_content) > 300 else ""),
-                "source": doc.metadata.get("source", "Unknown"),
+                "source": f"{doc.metadata.get('source', 'Unknown')}{page_str}",
             }
         )
 

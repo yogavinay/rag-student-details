@@ -4,6 +4,8 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Configuration
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -29,34 +31,57 @@ def flatten_json(obj, prefix=""):
 
 def ingest_documents():
     """
-    Loads JSON documents from the data directory, splits them into chunks,
-    generates embeddings, and stores them in a local Chroma database.
+    Loads documents from the data directory (PDF/TXT/JSON), splits them into
+    chunks, generates embeddings, and stores them in a local Chroma database.
     """
     if not os.path.exists(DATA_DIR):
         print(f"Directory '{DATA_DIR}' does not exist. Creating one...")
         os.makedirs(DATA_DIR)
-        print(f"Please place your JSON files in the '{DATA_DIR}' directory and run again.")
+        print(f"Please place your PDF/TXT/JSON files in the '{DATA_DIR}' directory and run again.")
         return
 
-    json_files = [f for f in os.listdir(DATA_DIR) if f.endswith('.json')]
-    if not json_files:
-        print(f"No JSON files found in '{DATA_DIR}'. Please add some JSON files.")
+    supported_exts = (".pdf", ".txt", ".json")
+    data_files = [f for f in os.listdir(DATA_DIR) if f.lower().endswith(supported_exts)]
+    if not data_files:
+        print(
+            f"No supported files found in '{DATA_DIR}'. "
+            f"Add one of: {', '.join(supported_exts)}"
+        )
         return
 
     documents = []
-    print("Loading JSON documents...")
-    for file in json_files:
+    print("Loading documents...")
+    for file in data_files:
         file_path = os.path.join(DATA_DIR, file)
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        ext = os.path.splitext(file)[1].lower()
 
-        # Flatten the JSON into readable text
-        text_lines = flatten_json(data)
-        text_content = "\n".join(text_lines)
+        if ext == ".pdf":
+            loader = PyPDFLoader(file_path)
+            docs = loader.load()
+            for d in docs:
+                d.metadata["source"] = file
+            documents.extend(docs)
+            print(f"Loaded: {file} ({len(docs)} pages)")
 
-        doc = Document(page_content=text_content, metadata={"source": file})
-        documents.append(doc)
-        print(f"Loaded: {file} ({len(text_content)} characters)")
+        elif ext == ".txt":
+            loader = TextLoader(file_path, encoding="utf-8")
+            docs = loader.load()
+            for d in docs:
+                d.metadata["source"] = file
+            documents.extend(docs)
+            print(f"Loaded: {file} ({sum(len(d.page_content) for d in docs)} characters)")
+
+        elif ext == ".json":
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Flatten the JSON into readable text
+            text_lines = flatten_json(data)
+            text_content = "\n".join(text_lines)
+
+            doc = Document(page_content=text_content, metadata={"source": file})
+            documents.append(doc)
+            print(f"Loaded: {file} ({len(text_content)} characters)")
 
     if not documents:
         print("No documents were loaded. Please check your JSON files.")
@@ -71,7 +96,29 @@ def ingest_documents():
     print(f"Total chunks created: {len(chunks)}")
 
     print("Initializing embedding model (sentence-transformers)...")
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = None
+    try:
+        # Prefer local HF embeddings if already cached (works offline).
+        embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2",
+            model_kwargs={"local_files_only": True},
+        )
+        print("Using local HuggingFace embeddings: all-MiniLM-L6-v2")
+    except Exception as e:
+        # Fallback: use Gemini embeddings (requires GEMINI_API_KEY + internet)
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "Could not load local HuggingFace embeddings (offline) and GEMINI_API_KEY is missing. "
+                "Either connect to the internet once to cache 'all-MiniLM-L6-v2', or set GEMINI_API_KEY "
+                "to use Gemini embeddings."
+            ) from e
+
+        print("Falling back to Gemini embeddings (GoogleGenerativeAIEmbeddings).")
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="text-embedding-004",
+            google_api_key=api_key,
+        )
 
     # Remove old DB if it exists to avoid duplicates
     if os.path.exists(DB_DIR):

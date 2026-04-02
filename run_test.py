@@ -1,8 +1,15 @@
 import os
 import sys
 
-# Ensure we use the correct directory
-os.chdir(r"c:\Users\vinay\Desktop\rag chat bot\rag-chatbot")
+# Avoid Windows console encoding issues (e.g., ₹)
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+# Ensure we run relative to this repo (works on any machine/path)
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(REPO_ROOT)
 
 try:
     from dotenv import load_dotenv
@@ -14,8 +21,8 @@ try:
     print("Initializing RAG chain...")
     chain = get_rag_chain()
     
-    # Test query
-    prompt = "What is the difference between a stack and a queue?"
+    # Test query (should be answerable from your indexed data)
+    prompt = "Summarize the key information in the uploaded document."
     print(f"\nAsking: {prompt}")
     
     # Run the query
