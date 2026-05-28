@@ -1,15 +1,18 @@
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 
 # Configuration
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")
+DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db_nvidia")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
@@ -105,19 +108,18 @@ def ingest_documents():
         )
         print("Using local HuggingFace embeddings: all-MiniLM-L6-v2")
     except Exception as e:
-        # Fallback: use Gemini embeddings (requires GEMINI_API_KEY + internet)
-        api_key = os.environ.get("GEMINI_API_KEY")
+        # Fallback: use NVIDIA embeddings (requires NVIDIA_API_KEY)
+        api_key = os.environ.get("NVIDIA_API_KEY")
         if not api_key:
             raise RuntimeError(
-                "Could not load local HuggingFace embeddings (offline) and GEMINI_API_KEY is missing. "
-                "Either connect to the internet once to cache 'all-MiniLM-L6-v2', or set GEMINI_API_KEY "
-                "to use Gemini embeddings."
+                "Could not load local HuggingFace embeddings (offline) and NVIDIA_API_KEY is missing. "
+                "Either connect to the internet once to cache 'all-MiniLM-L6-v2', or set NVIDIA_API_KEY "
+                "to use NVIDIA embeddings."
             ) from e
 
-        print("Falling back to Gemini embeddings (GoogleGenerativeAIEmbeddings).")
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="text-embedding-004",
-            google_api_key=api_key,
+        print("Falling back to NVIDIA embeddings.")
+        embeddings = NVIDIAEmbeddings(
+            api_key=api_key,
         )
 
     # Remove old DB if it exists to avoid duplicates

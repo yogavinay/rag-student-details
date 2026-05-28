@@ -10,8 +10,8 @@ import os
 from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -20,7 +20,7 @@ from langchain_core.output_parsers import StrOutputParser
 load_dotenv()
 
 # Configuration — use absolute paths
-DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")
+DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db_nvidia")
 
 
 def format_docs(docs):
@@ -41,12 +41,11 @@ def _build_components():
             model_kwargs={"local_files_only": True},
         )
     except Exception:
-        api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = os.environ.get("NVIDIA_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY not found. Please add it to the .env file.")
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="text-embedding-004",
-            google_api_key=api_key,
+            raise ValueError("NVIDIA_API_KEY not found. Please add it to the .env file.")
+        embeddings = NVIDIAEmbeddings(
+            api_key=api_key,
         )
 
     # 2. Load Chroma vector DB
@@ -60,13 +59,13 @@ def _build_components():
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     # 4. Gemini LLM
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("NVIDIA_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not found. Please add it to the .env file.")
+        raise ValueError("NVIDIA_API_KEY not found. Please add it to the .env file.")
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=api_key,
+    llm = ChatNVIDIA(
+        model="meta/llama3-70b-instruct",
+        api_key=api_key,
         temperature=0.3,
     )
 

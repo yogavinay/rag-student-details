@@ -2,7 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-os.chdir(r"c:\Users\vinay\Desktop\rag chat bot\rag-chatbot")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 

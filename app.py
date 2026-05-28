@@ -8,8 +8,20 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 
+from rag_chain import DB_DIR
+
 # Load environment variables
 load_dotenv()
+
+
+def _knowledge_base_ready() -> bool:
+    """True if Chroma persist dir exists and has been populated."""
+    if not os.path.isdir(DB_DIR):
+        return False
+    try:
+        return any(os.scandir(DB_DIR))
+    except OSError:
+        return False
 
 
 # ╔══════════════════════════════════════════════════════════════════╗
@@ -471,6 +483,31 @@ def render_sidebar():
 
         st.markdown("---")
 
+        # ── Knowledge base (Chroma) ───────────────────────────
+        st.markdown("##### 🗄️ Knowledge base")
+        if _knowledge_base_ready():
+            st.success("Index ready — you can chat.")
+        else:
+            st.warning("No search index yet. Build it once from your `data/` files.")
+        if st.button("🔨 Build / rebuild index", use_container_width=True, key="build_index"):
+            from ingest import ingest_documents
+
+            with st.spinner("Indexing documents… This may take a minute the first time."):
+                try:
+                    ingest_documents()
+                    if _knowledge_base_ready():
+                        st.success("Index built. You can ask questions now.")
+                    else:
+                        st.error(
+                            "Indexing finished but the database folder is still empty. "
+                            "Add a PDF, TXT, or JSON under `data/` and try again."
+                        )
+                except Exception as e:
+                    st.error(f"Indexing failed: {e}")
+            st.rerun()
+
+        st.markdown("---")
+
         # ── Clear Chat ───────────────────────────────────────
         if st.button("🗑️  Clear Chat", use_container_width=True):
             st.session_state.messages = []
@@ -615,7 +652,7 @@ def main():
                     answer = (
                         f"⚠️ Sorry, an error occurred: `{e}`\n\n"
                         "Please make sure you've run `python ingest.py` and your "
-                        "`.env` file contains a valid `GEMINI_API_KEY`."
+                        "`.env` file contains a valid `NVIDIA_API_KEY`."
                     )
                     sources = []
 
